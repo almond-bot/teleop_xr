@@ -8,15 +8,22 @@ export class VideoClient {
   private pc: RTCPeerConnection | null = null;
   private statsTimer: number | null = null;
 
-  constructor(private url: string, private onStats: (stats: VideoStats) => void) {
+  constructor(private url: string, private onStats: (stats: VideoStats) => void, private onTrack?: (track: MediaStreamTrack) => void) {
     this.ws = new WebSocket(url);
     this.ws.onmessage = (event) => this.handleMessage(JSON.parse(event.data));
-    this.ws.onopen = () => this.ws.send(JSON.stringify({ type: "video_request" }));
+    this.ws.onopen = () => {
+      this.ws.send(JSON.stringify({ type: "video_request" }));
+    };
   }
 
   private async handleMessage(msg: any) {
     if (msg.type === "video_offer") {
       this.pc = new RTCPeerConnection();
+      this.pc.ontrack = (event) => {
+        if (this.onTrack && event.track.kind === "video") {
+          this.onTrack(event.track);
+        }
+      };
       this.pc.onicecandidate = (e) => {
         if (e.candidate) {
           this.ws.send(JSON.stringify({ type: "video_ice", data: e.candidate }));

@@ -74,6 +74,7 @@ class CameraStreamTrack(VideoStreamTrack):
         if not ok:
             await asyncio.sleep(0.01)
             return await self.recv()
+
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         video_frame = VideoFrame.from_ndarray(frame, format="rgb24")
         video_frame.pts = pts

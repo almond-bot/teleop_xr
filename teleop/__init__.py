@@ -258,12 +258,22 @@ class Teleop:
         )
 
     async def _handle_video_message(self, websocket: WebSocket, message: dict) -> None:
-        if message.get("type") == "video_request":
+        msg_type = message.get("type")
+        self.__logger.info(f"Received video message: {msg_type}")
+
+        if msg_type == "video_request":
+            self.__logger.info("Starting video session")
             await self._start_video_session(websocket)
             return
+
         session = self.__video_sessions.get(websocket)
         if session:
+            self.__logger.debug(f"Routing {msg_type} to session")
             await route_video_message(session, message)
+        else:
+            self.__logger.warning(
+                f"No active video session for websocket, ignoring {msg_type}"
+            )
 
     def apply(self, position, orientation, move=True, scale=1.0, info=None):
         if info is None:
@@ -432,8 +442,6 @@ class Teleop:
                         "video_ice",
                     }:
                         await self._handle_video_message(websocket, message)
-                    elif message.get("type") == "log":
-                        self.__logger.info(f"Received log message: {message['data']}")
 
             except WebSocketDisconnect:
                 session = self.__video_sessions.pop(websocket, None)

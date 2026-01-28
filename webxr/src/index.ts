@@ -17,7 +17,6 @@ import {
   Interactable,
   PanelUI,
   PlaybackMode,
-  ScreenSpace,
 } from "@iwsdk/core";
 
 import { EnvironmentType, LocomotionEnvironment } from "@iwsdk/core";
@@ -30,7 +29,9 @@ import { Robot } from "./robot.js";
 
 import { RobotSystem } from "./robot.js";
 
-import { VideoClient } from "./video";
+import { VideoClient } from "./video.js";
+
+import { DraggablePanel, CameraPanel } from "./panels.js";
 
 const assets: AssetManifest = {
   chimeSound: {
@@ -109,20 +110,29 @@ World.create(document.getElementById("scene-container") as HTMLDivElement, {
       playbackMode: PlaybackMode.FadeRestart,
     });
 
-  const panelEntity = world
-    .createTransformEntity()
-    .addComponent(PanelUI, {
-      config: "./ui/teleop.json",
-      maxHeight: 0.8,
-      maxWidth: 1.6,
-    })
-    .addComponent(Interactable)
-    .addComponent(ScreenSpace, {
-      top: "20px",
-      left: "20px",
-      height: "40%",
-    });
-  panelEntity.object3D!.position.set(0, 1.29, -1.9);
+  const teleopPanel = new DraggablePanel(world, "./ui/teleop.json", {
+    maxHeight: 0.8,
+    maxWidth: 1.6,
+  });
+  teleopPanel.setPosition(0, 1.29, -1.9);
+
+  const cameraPanel = new CameraPanel(world);
+  cameraPanel.setPosition(1.2, 1.3, -1.5);
+  // Default to visible
+  if (cameraPanel.entity.object3D) {
+    cameraPanel.entity.object3D.visible = true;
+  }
+
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const videoWsUrl = `${protocol}//${window.location.host}/ws`;
+
+  const videoClient = new VideoClient(
+    videoWsUrl,
+    (stats) => {},
+    (track) => {
+      cameraPanel.setVideoTrack(track);
+    },
+  );
 
   const webxrLogoTexture = AssetManager.getTexture("webxr")!;
   webxrLogoTexture.colorSpace = SRGBColorSpace;

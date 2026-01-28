@@ -17,6 +17,10 @@ export class TeleopSystem extends createSystem({
     required: [PanelUI, PanelDocument],
     where: [eq(PanelUI, "config", "./ui/teleop.json")],
   },
+  cameraPanel: {
+    required: [PanelUI],
+    where: [eq(PanelUI, "config", "./ui/camera.uikitml")],
+  },
 }) {
   private ws: WebSocket | null = null;
   private statusText: any = null;
@@ -42,6 +46,17 @@ export class TeleopSystem extends createSystem({
       this.statusText = document.getElementById("status-text");
       this.fpsText = document.getElementById("fps-text");
       this.latencyText = document.getElementById("latency-text");
+
+      const cameraButton = document.getElementById("camera-button");
+      if (cameraButton) {
+        cameraButton.addEventListener("click", () => {
+          this.queries.cameraPanel.results.forEach((entity) => {
+            if (entity.object3D) {
+              entity.object3D.visible = !entity.object3D.visible;
+            }
+          });
+        });
+      }
 
       const isConnected = this.ws && this.ws.readyState === WebSocket.OPEN;
       this.updateStatus(isConnected ? "Connected" : "Disconnected", !!isConnected);

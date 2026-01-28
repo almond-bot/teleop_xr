@@ -59,7 +59,7 @@
     color: #22c55e;
   }
 
-  #xr-button {
+  .button {
     width: 100%;
     padding: 1.5;
     margin-top: 2;
@@ -93,5 +93,6 @@
       <span id="latency-text" class="value">0ms</span>
     </div>
   </div>
-  <button id="xr-button">Enter XR</button>
+  <button id="camera-button" class="button">Toggle Camera</button>
+  <button id="xr-button" class="button">Enter XR</button>
 </div>
