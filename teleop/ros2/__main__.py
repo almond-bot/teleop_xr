@@ -6,6 +6,7 @@ try:
     import rclpy
     from geometry_msgs.msg import Pose, PoseStamped, PoseArray, TransformStamped
     from sensor_msgs.msg import Joy
+    from std_msgs.msg import Float64
     from tf2_ros import TransformBroadcaster
     from builtin_interfaces.msg import Time
 except ImportError:
@@ -132,7 +133,7 @@ def main():
             publishers[topic] = node.create_publisher(msg_type, topic, 1)
         return publishers[topic]
 
-    def publish_pose(topic, pose_dict, stamp, child_frame_id):
+    def publish_pose(topic, pose_dict, stamp, child_frame_id, tf_stamp):
         if not pose_dict:
             return
         mat = pose_dict_to_matrix(pose_dict)
@@ -145,7 +146,7 @@ def main():
         get_publisher(PoseStamped, topic).publish(msg)
 
         tf = TransformStamped()
-        tf.header.stamp = stamp
+        tf.header.stamp = tf_stamp  # Use PC timestamp for TF
         tf.header.frame_id = args.frame_id
         tf.child_frame_id = child_frame_id
         tf.transform.translation.x = msg.pose.position.x
@@ -200,6 +201,15 @@ def main():
             stamp = (
                 ms_to_time(ms) if ms is not None else node.get_clock().now().to_msg()
             )
+            # Use PC timestamp for TF to avoid lag from headset/PC time difference
+            tf_stamp = node.get_clock().now().to_msg()
+
+            # Publish fetch latency if available
+            fetch_latency = xr_state.get("fetch_latency_ms") if xr_state else None
+            if fetch_latency is not None:
+                latency_msg = Float64()
+                latency_msg.data = float(fetch_latency)
+                get_publisher(Float64, "xr/fetch_latency_ms").publish(latency_msg)
 
             for device in xr_state.get("devices", []) if xr_state else []:
                 role = device.get("role")
@@ -211,20 +221,16 @@ def main():
                         device.get("pose"),
                         stamp,
                         "xr/head",
+                        tf_stamp,
                     )
 
                 if role == "controller":
                     publish_pose(
-                        f"xr/controller_{handed}/target_ray",
-                        device.get("targetRayPose"),
-                        stamp,
-                        f"xr/controller_{handed}/target_ray",
-                    )
-                    publish_pose(
-                        f"xr/controller_{handed}/grip",
+                        f"xr/controller_{handed}/pose",
                         device.get("gripPose"),
                         stamp,
-                        f"xr/controller_{handed}/grip",
+                        f"xr/controller_{handed}/pose",
+                        tf_stamp,
                     )
 
                     joy_payload, touched = build_joy(device.get("gamepad"))

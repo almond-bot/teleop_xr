@@ -286,6 +286,11 @@ class Teleop:
         input_mode = self.__input_mode
         devices = message.get("devices", [])
 
+        # Log fetch latency if present
+        fetch_latency = message.get("fetch_latency_ms")
+        if fetch_latency is not None:
+            self.__logger.debug(f"XR input fetch latency: {fetch_latency:.2f}ms")
+
         filtered_devices = []
         for d in devices:
             role = d.get("role")
@@ -293,12 +298,10 @@ class Teleop:
                 filtered_devices.append(d)
             elif role == "controller" and input_mode in ["controller", "auto"]:
                 filtered_devices.append(d)
-            elif role == "hand" and input_mode in ["hand", "auto"]:
-                filtered_devices.append(d)
 
         message["devices"] = filtered_devices
 
-        # Derive pose from controller device (prefer right then left; prefer gripPose then targetRayPose)
+        # Derive pose from controller device (prefer right then left)
         target_device = None
         for handedness in ["right", "left"]:
             for d in filtered_devices:
@@ -309,9 +312,7 @@ class Teleop:
                 break
 
         if target_device:
-            pose_data = target_device.get("gripPose") or target_device.get(
-                "targetRayPose"
-            )
+            pose_data = target_device.get("gripPose")
             if pose_data:
                 self.apply(
                     pose_data["position"],
