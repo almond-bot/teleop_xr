@@ -58,4 +58,5 @@ utils = ["pin"]
 dev = [
   "pre-commit",
   "mkdocs-material",
+  "mkdocstrings[python]",
 ]

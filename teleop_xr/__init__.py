@@ -174,8 +174,8 @@ class Teleop:
     Teleop class for controlling a robot remotely using FastAPI and WebSockets.
 
     Args:
-        host (str, optional): The host IP address. Defaults to "0.0.0.0".
-        port (int, optional): The port number. Defaults to 4443.
+        settings (TeleopSettings): Configuration settings for the teleop server.
+        video_sources (Optional[dict[str, VideoSource]]): Dictionary of video sources.
     """
 
     def __init__(
