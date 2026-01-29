@@ -1,10 +1,10 @@
 # TeleopXR
 
-**TeleopXR** is a powerful WebXR-based interface for robot teleoperation, transforming your VR/AR headset or phone into a precise robot controller.
+**TeleopXR** is a powerful WebXR-based interface for robot teleoperation, transforming your VR/AR headset into a precise robot controller.
 
 ## Overview
 
-This project provides a seamless bridge between WebXR-capable devices (Quest 3, Vision Pro, modern smartphones) and robotic arms. It features a lightweight, high-performance web client that communicates with a Python backend to control robots like xArm, UR5e, and Lite6.
+This project provides a seamless bridge between WebXR-capable devices (Quest 3, Vision Pro, etc) and robotic arms. It features a lightweight, high-performance web client that communicates with a Python backend to control robots like xArm, UR5e, and Lite6.
 
 ## Key Improvements
 
