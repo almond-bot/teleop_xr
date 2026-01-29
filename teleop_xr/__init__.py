@@ -11,7 +11,7 @@ import transforms3d as t3d
 import numpy as np
 import json
 
-from teleop.video_stream import (
+from teleop_xr.video_stream import (
     VideoStreamConfig,
     VideoStreamManager,
     parse_video_config,
@@ -19,7 +19,7 @@ from teleop.video_stream import (
     VideoSource,
     build_sources,
 )
-from teleop.camera_views import build_video_streams
+from teleop_xr.camera_views import build_video_streams
 
 TF_RUB2FLU = np.array([[0, 0, -1, 0], [-1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1]])
 THIS_DIR = os.path.dirname(os.path.realpath(__file__))

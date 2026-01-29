@@ -1,7 +1,7 @@
 import argparse
 import numpy as np
-from teleop import Teleop
-from teleop.camera_views import (
+from teleop_xr import Teleop
+from teleop_xr.camera_views import (
     build_camera_views_config,
     build_video_streams,
     parse_device_spec,

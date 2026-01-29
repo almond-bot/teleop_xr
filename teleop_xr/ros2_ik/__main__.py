@@ -1,4 +1,4 @@
-from teleop import Teleop
+from teleop_xr import Teleop
 import argparse
 import threading
 
@@ -11,7 +11,7 @@ except ImportError:
     )
 
 try:
-    from teleop.utils.jacobi_robot_ros import JacobiRobotROS
+    from teleop_xr.utils.jacobi_robot_ros import JacobiRobotROS
 except ImportError:
     raise ImportError(
         "JacobiRobotROS is not available. Please install the teleop with [utils] extra."

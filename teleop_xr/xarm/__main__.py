@@ -1,5 +1,5 @@
 import numpy as np
-from teleop import Teleop
+from teleop_xr import Teleop
 import time
 import transforms3d as t3d
 

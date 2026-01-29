@@ -1,6 +1,6 @@
 import pytest
 import logging
-from teleop.camera_views import (
+from teleop_xr.camera_views import (
     parse_device_spec,
     build_camera_views_config,
     build_video_streams,

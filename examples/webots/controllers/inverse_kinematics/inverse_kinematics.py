@@ -1,8 +1,8 @@
 import tempfile
 import threading
 from controller import Robot
-from teleop import Teleop
-from teleop.utils.jacobi_robot import JacobiRobot
+from teleop_xr import Teleop
+from teleop_xr.utils.jacobi_robot import JacobiRobot
 
 
 class RobotArm(Robot):

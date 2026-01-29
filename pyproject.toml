@@ -3,8 +3,8 @@ requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "teleop"
-version = "0.1.4"
+name = "teleop_xr"
+version = "0.1.0"
 description = "Turns your phone into a robot arm teleoperation device by leveraging the WebXR API"
 readme = { file = "README.md", content-type = "text/markdown" }
 license = { file = "LICENSE" }
@@ -31,7 +31,7 @@ Tracker = "https://github.com/SpesRobotics/teleop/issues"
 utils = ["pin"]
 
 [tool.setuptools.packages.find]
-include = ["teleop*"]
+include = ["teleop_xr*"]
 
 [tool.setuptools.package-data]
-teleop = ["cert.pem", "key.pem", "index.html", "assets/*", "utils/lite6.urdf"]
+teleop_xr = ["cert.pem", "key.pem", "index.html", "assets/*", "utils/lite6.urdf"]

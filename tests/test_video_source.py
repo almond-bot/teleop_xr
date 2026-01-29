@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 import threading
 from unittest.mock import MagicMock, patch
-from teleop.video_stream import (
+from teleop_xr.video_stream import (
     OpenCVVideoSource,
     ExternalVideoSource,
     CameraStreamTrack,

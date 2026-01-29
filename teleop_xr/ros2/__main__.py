@@ -2,8 +2,8 @@ import argparse
 import threading
 import cv2
 import numpy as np
-from teleop import Teleop, TF_RUB2FLU
-from teleop.video_stream import ExternalVideoSource
+from teleop_xr import Teleop, TF_RUB2FLU
+from teleop_xr.video_stream import ExternalVideoSource
 import transforms3d as t3d
 
 try:

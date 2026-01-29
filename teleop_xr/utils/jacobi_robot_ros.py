@@ -6,7 +6,7 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from builtin_interfaces.msg import Duration
 from std_msgs.msg import String
 from typing import Optional, List
-from teleop.utils.jacobi_robot import JacobiRobot
+from teleop_xr.utils.jacobi_robot import JacobiRobot
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy
 import tempfile
 
