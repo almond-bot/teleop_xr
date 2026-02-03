@@ -69,6 +69,14 @@ def test_get_mesh_no_mesh_path(test_app, tmp_path):
     assert response.content == b"foo"
 
 
+def test_get_mesh_asset_no_extension(client, tmp_path):
+    dummy_file = tmp_path / "meshes" / "no_ext"
+    dummy_file.write_bytes(b"content")
+    response = client.get("/robot_assets/package://no_ext")
+    assert response.status_code == 200
+    assert response.content == b"content"
+
+
 def test_get_asset_not_found(client):
     response = client.get("/robot_assets/nonexistent.file")
     assert response.status_code == 404
@@ -77,7 +85,9 @@ def test_get_asset_not_found(client):
 def test_frontend_config(test_app, mock_config):
     module = RobotVisModule(test_app, mock_config)
     config = module.get_frontend_config()
-    assert config == {"urdf_url": "/robot_assets/robot.urdf"}
+    assert config["urdf_url"] == "/robot_assets/robot.urdf"
+    assert config["model_scale"] == 1.0
+    assert config["initial_rotation_euler"] == [0.0, 0.0, 0.0]
 
 
 @pytest.mark.anyio

@@ -201,7 +201,16 @@ export class TeleopSystem extends createSystem({
 		this.ws.onmessage = (event) => {
 			try {
 				const message = JSON.parse(event.data);
-				if (message.type === "deny") {
+				if (message.type === "connection_error") {
+					const reason = message.data?.reason;
+					const msg = message.data?.message;
+					if (reason === "connecting") {
+						this.lastConnectionError = msg || "Waiting for WebSocket slot...";
+					} else {
+						this.lastConnectionError = msg || "Connection Denied";
+					}
+					this.updateStatus(this.lastConnectionError, true);
+				} else if (message.type === "deny") {
 					this.inControl = false;
 					this.lastConnectionError =
 						message.data?.reason === "not_in_control"

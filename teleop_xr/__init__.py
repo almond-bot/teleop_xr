@@ -4,6 +4,7 @@ import math
 import socket
 import time
 import logging
+import json
 from typing import Callable, List, Optional, Dict, Any
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -12,7 +13,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import transforms3d as t3d
 import numpy as np
-import json
 
 from teleop_xr.video_stream import (
     VideoStreamConfig,
@@ -231,6 +231,8 @@ class Teleop:
             allow_headers=["*"],
         )
         self.__manager = ConnectionManager()
+
+        self.__ws_connect_lock = asyncio.Lock()
         self.__control_lock = asyncio.Lock()
         self.__controller_client_id: Optional[str] = None
         self.__controller_ws: Optional[WebSocket] = None
@@ -274,10 +276,10 @@ class Teleop:
         Subscribe to receive updates from the teleop module.
 
         Parameters:
-            callback: A callback function that will be called when pose updates are received.
+            callback (Callable[[np.ndarray, dict[str, Any]], None]): A callback function that will be called when pose updates are received.
                 The callback function should take two arguments:
                     - np.ndarray: A 4x4 transformation matrix representing the end-effector target pose.
-                    - mapping: Additional information.
+                    - dict[str, Any]: A dictionary containing additional information.
         """
         self.__callbacks.append(callback)
 
@@ -463,39 +465,63 @@ class Teleop:
             control_timeout_s = 5.0
 
             await websocket.accept()
-            await self.__manager.register(websocket)
 
-            await websocket.send_text(
-                json.dumps(
-                    {
-                        "type": "config",
-                        "data": self.__settings.model_dump(),
-                    }
-                )
-            )
-
-            if self.robot_vis:
+            try:
+                await asyncio.wait_for(self.__ws_connect_lock.acquire(), timeout=0.05)
+            except asyncio.TimeoutError:
                 await websocket.send_text(
                     json.dumps(
                         {
-                            "type": "robot_config",
-                            "data": self.robot_vis.get_frontend_config(),
+                            "type": "connection_error",
+                            "data": {
+                                "reason": "connecting",
+                                "message": "WebSocket busy: another client is connecting.",
+                            },
+                        }
+                    )
+                )
+                await websocket.close()
+                return
+
+            try:
+                await self.__manager.register(websocket)
+
+                # Send config message on connect
+                await websocket.send_text(
+                    json.dumps(
+                        {
+                            "type": "config",
+                            "data": self.__settings.model_dump(),
                         }
                     )
                 )
 
-            if self.__video_streams:
-                await self.__manager.send_personal_message(
-                    json.dumps(
-                        {
-                            "type": "video_config",
-                            "data": {
-                                "streams": [s.__dict__ for s in self.__video_streams]
-                            },
-                        }
-                    ),
-                    websocket,
-                )
+                if self.robot_vis:
+                    await websocket.send_text(
+                        json.dumps(
+                            {
+                                "type": "robot_config",
+                                "data": self.robot_vis.get_frontend_config(),
+                            }
+                        )
+                    )
+
+                if self.__video_streams:
+                    await self.__manager.send_personal_message(
+                        json.dumps(
+                            {
+                                "type": "video_config",
+                                "data": {
+                                    "streams": [
+                                        s.__dict__ for s in self.__video_streams
+                                    ]
+                                },
+                            }
+                        ),
+                        websocket,
+                    )
+            finally:
+                self.__ws_connect_lock.release()
 
             self.__logger.info("Client connected")
 
