@@ -1,6 +1,6 @@
 # pyright: reportCallIssue=false
+import json
 import os
-import io
 from pathlib import Path
 from typing import Any, override
 
@@ -20,6 +20,8 @@ class TeaArmRobot(BaseRobot):
         self.urdf_path: str
         self.mesh_path: str | None
         if urdf_string:
+            import io
+
             urdf = yourdfpy.URDF.load(io.StringIO(urdf_string))
             self.urdf_path = ""
             self.mesh_path = None
@@ -45,7 +47,18 @@ class TeaArmRobot(BaseRobot):
             urdf = yourdfpy.URDF.load(self.urdf_path)
 
         self.robot: pk.Robot = pk.Robot.from_urdf(urdf)
-        self.robot_coll = pk.collision.RobotCollision.from_urdf(urdf)
+
+        collision_data = self._load_collision_data()
+        if collision_data is not None:
+            sphere_decomposition, ignore_pairs = collision_data
+            self.robot_coll = pk.collision.RobotCollision.from_sphere_decomposition(
+                sphere_decomposition,
+                urdf,
+                user_ignore_pairs=ignore_pairs,
+                ignore_immediate_adjacents=True,
+            )
+        else:
+            self.robot_coll = pk.collision.RobotCollision.from_urdf(urdf)
 
         self.L_ee: str = "frame_left_arm_ee"
         self.R_ee: str = "frame_right_arm_ee"
@@ -61,6 +74,47 @@ class TeaArmRobot(BaseRobot):
             raise ValueError(f"Link {self.R_ee} not found in URDF")
 
         self.waist_link_idx: int = self.robot.links.names.index("waist_link")
+
+    @staticmethod
+    def _load_collision_data() -> (
+        tuple[dict[str, Any], tuple[tuple[str, str], ...]] | None
+    ):
+        """Load collision data (spheres + ignore pairs) for TeaArm from assets.
+
+        Tries ``collision.json`` first (new format with ignore pairs),
+        falls back to ``sphere.json`` (legacy sphere-only format).
+
+        Returns:
+            Tuple of (sphere_decomposition, ignore_pairs) or None.
+        """
+        asset_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "assets",
+            "teaarm",
+        )
+
+        collision_path = os.path.join(asset_dir, "collision.json")
+        sphere_path = os.path.join(asset_dir, "sphere.json")
+
+        try:
+            if os.path.exists(collision_path):
+                with open(collision_path, "r") as f:
+                    data = json.load(f)
+                spheres = data["spheres"]
+                ignore_pairs = tuple(
+                    tuple(pair) for pair in data.get("collision_ignore_pairs", [])
+                )
+                return spheres, ignore_pairs
+
+            if os.path.exists(sphere_path):
+                with open(sphere_path, "r") as f:
+                    data = json.load(f)
+                return data, ()
+
+        except (json.JSONDecodeError, IOError, KeyError):
+            pass
+
+        return None
 
     @property
     @override
@@ -195,14 +249,14 @@ class TeaArmRobot(BaseRobot):
 
         costs.append(pk.costs.limit_cost(self.robot, JointVar(0), weight=100.0))
 
-        # costs.append(
-        #     pk.costs.self_collision_cost(
-        #         self.robot,
-        #         self.robot_coll,
-        #         JointVar(0),
-        #         margin=0.5,
-        #         weight=1.0,
-        #     )
-        # )
+        costs.append(
+            pk.costs.self_collision_cost(
+                self.robot,
+                self.robot_coll,
+                JointVar(0),
+                margin=0.05,
+                weight=10.0,
+            )
+        )
 
         return costs

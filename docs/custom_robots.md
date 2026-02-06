@@ -74,3 +74,9 @@ Register your robot in `pyproject.toml` to make it discoverable by name:
 [project.entry-points."teleop_xr.robots"]
 my-robot = "my_package.robots:MyRobot"
 ```
+
+## 5. Sphere Collision Support
+
+For advanced robots with complex geometries, TeleopXR supports sphere-based collision checking. This provides superior performance and differentiable signed distance fields for IK optimization.
+
+See the [**Sphere Collision Guide**](./sphere_collision.md) for details on how to generate sphere decompositions and integrate them into your robot implementation.

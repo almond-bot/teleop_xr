@@ -1,6 +1,8 @@
 {
-	"active_plan": "/home/cc/codes/teleop_xr/.sisyphus/plans/teleop_transform_fix.md",
-	"started_at": "2026-02-05T05:50:00.000Z",
-	"session_ids": [],
-	"plan_name": "teleop_transform_fix"
+	"active_plan": "/home/cc/codes/teleop_xr/.sisyphus/plans/interactive-sphere-generation.md",
+	"started_at": "2026-02-06T09:40:00.000Z",
+	"completed_at": "2026-02-06T10:05:00.000Z",
+	"session_ids": ["ses_3ce4a0818ffeCGCackmyuyMwQs"],
+	"plan_name": "interactive-sphere-generation",
+	"status": "completed"
 }

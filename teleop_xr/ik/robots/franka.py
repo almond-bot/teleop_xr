@@ -68,6 +68,7 @@ class FrankaRobot(BaseRobot):
         return jaxlie.SO3.identity()
 
     @property
+    @override
     def supported_frames(self) -> set[str]:
         return {"right"}
 
@@ -85,19 +86,23 @@ class FrankaRobot(BaseRobot):
         )
 
     @property
+    @override
     def joint_var_cls(self) -> Any:
         return self.robot.joint_var_cls
 
     @property
+    @override
     def actuated_joint_names(self) -> list[str]:
         return list(self.robot.joints.actuated_names)
 
+    @override
     def forward_kinematics(self, config: jax.Array) -> dict[str, jaxlie.SE3]:
         fk = self.robot.forward_kinematics(config)
         return {
             "right": jaxlie.SE3(fk[self.ee_link_idx]),
         }
 
+    @override
     def get_default_config(self) -> jax.Array:
         # Default home pose (non-singular)
         # Standard Franka Panda home pose: [0, -pi/4, 0, -3pi/4, 0, pi/2, pi/4]
@@ -115,6 +120,7 @@ class FrankaRobot(BaseRobot):
 
         return q
 
+    @override
     def build_costs(
         self,
         target_L: jaxlie.SE3 | None,
