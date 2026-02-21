@@ -56,11 +56,11 @@ class OpenArmRobot(BaseRobot):
 
     # Grip-frame → EE (link7) frame alignment for absolute pose mode.
     #
-    # The OpenArm arms extend along the link0 Z-axis (which points sideways in
-    # world frame due to the ±π/2 roll mount). The XR controller grip frame in
-    # FLU has X=forward. Ry(+π/2) maps controller-X → link0-Z so that holding
-    # the controller straight forward targets the arm pointing outward, matching
-    # the robot's natural resting pose.
+    # link0 has Rx(±π/2), so at zero config link7's Z-axis points sideways (±Y
+    # in world). Ry(+π/2) maps Z→X in link0 frame, rotating the EE approach axis
+    # to world +X (forward) when the controller is held straight out.
+    # Add an Rx(r) component via from_rpy_radians(r, π/2, 0) to correct wrist spin
+    # if the gripper opening direction is still off after this.
     _R_ALIGN: jaxlie.SO3 = jaxlie.SO3.from_rpy_radians(0.0, math.pi / 2, 0.0)
 
     def __init__(self, urdf_string: str | None = None, **kwargs: Any) -> None:

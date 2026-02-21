@@ -137,25 +137,30 @@ class IKController:
         Compute an absolute IK target in robot world frame (absolute mode).
 
         Maps the controller's pose relative to the operator's shoulder into the
-        robot's arm workspace by treating the arm's link0 as the matching shoulder
-        reference. An optional ``R_align`` rotation from the robot corrects any
-        constant offset between the XR grip frame and the robot EE (link7) frame.
+        robot's arm workspace. Translation is a direct world-frame offset from
+        link0. Rotation is: ``ctrl_rot_world @ link0_rot @ R_align`` — the
+        controller's world-frame rotation left-multiplied so all axes stay in
+        world frame, with ``R_align`` setting the EE's rest orientation.
 
         Args:
             T_ctrl: Controller grip pose in FLU world frame.
-            T_shoulder: Shoulder joint pose in FLU world frame (from Quest body tracking).
+            T_shoulder: Shoulder joint pose in FLU world frame (only position is used;
+                the Quest body-tracking orientation is a joint-local frame that does
+                not align with world FLU).
             T_link0_in_world: Fixed SE3 of the arm's link0 in the URDF world frame.
 
         Returns:
             jaxlie.SE3: IK target in robot URDF world frame.
         """
-        # World-frame offset from shoulder to controller (strip shoulder orientation —
-        # the Quest body-tracking joint frame does not align with world FLU and would
-        # corrupt the translation if we used T_shoulder.inverse() @ T_ctrl directly).
+        # World-frame offset from shoulder to controller.
+        # Strip shoulder orientation entirely — the Quest body-tracking joint frame
+        # does not align with world FLU and corrupts both translation and rotation.
         offset_world = T_ctrl.translation() - T_shoulder.translation()
 
-        # Controller orientation relative to shoulder in world FLU frame.
-        ctrl_rot_in_shoulder = T_shoulder.rotation().inverse() @ T_ctrl.rotation()
+        # Controller orientation in world FLU frame (no shoulder-relative transform).
+        # Using the raw world orientation keeps R_align as a pure EE-frame correction
+        # that's independent of the shoulder tracking frame.
+        ctrl_rot_world = T_ctrl.rotation()
 
         R_align = self.robot.R_align
 
@@ -164,8 +169,11 @@ class IKController:
         # to the FLU offset and swap Y/Z axes.
         target_translation = T_link0_in_world.translation() + offset_world
 
-        # Rotation: link0 frame @ alignment correction @ controller orientation.
-        target_rotation = T_link0_in_world.rotation() @ R_align @ ctrl_rot_in_shoulder
+        # Rotation: apply controller rotation in world frame, then the rest orientation.
+        # Left-multiplying by ctrl_rot keeps all axes in world frame — right-multiplying
+        # (link0_rot @ R_align @ ctrl_rot) would express ctrl_rot in EE frame, causing
+        # a cyclic axis permutation (controller Rz → arm Rx, etc.).
+        target_rotation = ctrl_rot_world @ T_link0_in_world.rotation() @ R_align
 
         return jaxlie.SE3.from_rotation_and_translation(target_rotation, target_translation)
 
