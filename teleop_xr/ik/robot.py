@@ -120,6 +120,31 @@ class BaseRobot(ABC):
         pass  # pragma: no cover
 
     @property
+    def link0_transforms(self) -> dict[str, jaxlie.SE3]:
+        """
+        Per-arm fixed transform from URDF world frame to each arm's base link (link0).
+
+        Used by absolute pose mode to convert shoulder-relative controller poses into
+        robot world frame targets. Override in robot subclasses that support absolute pose.
+
+        Returns:
+            dict mapping frame name ("left", "right") to SE3 in URDF world frame.
+        """
+        return {}
+
+    @property
+    def R_align(self) -> jaxlie.SO3:
+        """
+        Rotation that maps the XR controller grip frame to the robot EE (link7) frame.
+
+        Applied during absolute pose computation after shoulder-relative subtraction.
+        Defaults to identity — tune empirically once with hardware by adjusting until
+        the robot's EE orientation matches the controller's held orientation at a
+        reference pose (e.g. arm forward, palm down).
+        """
+        return jaxlie.SO3.identity()
+
+    @property
     def supported_frames(self) -> set[str]:
         """
         Get the set of supported frames for this robot.

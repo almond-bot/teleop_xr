@@ -1,4 +1,5 @@
 # pyright: reportCallIssue=false
+import math
 import os
 import sys
 from typing import Any
@@ -19,11 +20,47 @@ from teleop_xr.ik.robot import BaseRobot, Cost
 from teleop_xr import ram
 
 
+def _make_link0_transform(rpy_x: float, y_offset: float) -> jaxlie.SE3:
+    """Build T_linkX_in_world from the URDF bimanual mount parameters."""
+    return jaxlie.SE3.from_rotation_and_translation(
+        jaxlie.SO3.from_rpy_radians(rpy_x, 0.0, 0.0),
+        jnp.array([0.0, y_offset, 0.698]),
+    )
+
+
 class OpenArmRobot(BaseRobot):
     """
     OpenArm bimanual robot implementation for IK.
     Uses the openarm_description package with bimanual=true.
+
+    Absolute pose mode
+    ------------------
+    Both arms are mounted on the body with a ±π/2 roll:
+      - left  link0: xyz=[0, +0.031, 0.698]  rpy=[-π/2, 0, 0]
+      - right link0: xyz=[0, -0.031, 0.698]  rpy=[+π/2, 0, 0]
+
+    The Quest shoulder joints and XR controller poses reach IKController already
+    converted to FLU (Forward-Left-Up / ROS) frame by the server. Shoulder-relative
+    controller motion is mapped to robot-world targets via ``link0_transforms``.
+
+    ``R_ALIGN`` maps the controller grip frame to the robot EE (link7) frame. It
+    defaults to identity, which is a reasonable starting point. Tune it empirically
+    once with hardware: hold the controller at a reference pose (arm forward, palm
+    facing inward) and adjust until link7 tracks correctly.
     """
+
+    # Fixed transforms from URDF world frame to each arm's base link (link0).
+    # Source: v10.urdf.xacro bimanual args for left/right_arm_base_xyz/rpy.
+    _T_L_LINK0_IN_WORLD: jaxlie.SE3 = _make_link0_transform(-math.pi / 2, 0.031)
+    _T_R_LINK0_IN_WORLD: jaxlie.SE3 = _make_link0_transform(math.pi / 2, -0.031)
+
+    # Grip-frame → EE (link7) frame alignment for absolute pose mode.
+    # At zero joint config, link7's orientation in URDF world is Rx(-π/2) for the
+    # left arm, Rx(+π/2) for the right. All joint kinematics have zero rpy, so
+    # link7-in-link0 = identity at zero config. The XR grip frame (post RUB→FLU
+    # conversion) and link7 share the same FLU axes, so identity is the correct
+    # starting value. Adjust empirically if EE orientation is off.
+    _R_ALIGN: jaxlie.SO3 = jaxlie.SO3.identity()
 
     def __init__(self, urdf_string: str | None = None, **kwargs: Any) -> None:
         super().__init__()
@@ -82,6 +119,19 @@ class OpenArmRobot(BaseRobot):
     @override
     def supported_frames(self) -> set[str]:
         return {"left", "right"}
+
+    @property
+    @override
+    def link0_transforms(self) -> dict[str, jaxlie.SE3]:
+        return {
+            "left": self._T_L_LINK0_IN_WORLD,
+            "right": self._T_R_LINK0_IN_WORLD,
+        }
+
+    @property
+    @override
+    def R_align(self) -> jaxlie.SO3:
+        return self._R_ALIGN
 
     @property
     @override

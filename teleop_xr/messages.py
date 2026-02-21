@@ -44,6 +44,7 @@ class XRState(BaseModel):
     timestamp_unix_ms: float
     fetch_latency_ms: Optional[float] = None
     devices: List[XRInputSource]
+    body_joints: Optional[Dict[str, XRPose]] = None
 
 
 class XRStateMessage(BaseModel):
