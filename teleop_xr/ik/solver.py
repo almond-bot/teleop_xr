@@ -111,16 +111,29 @@ class PyrokiSolver:
     def _warmup(self) -> None:
         """
         Triggers JIT compilation by running a solve with dummy data.
+
+        The primary call mirrors the exact static structure the controller produces
+        at runtime (only frames in supported_frames are passed as non-None), so JAX
+        never has to retrace on the first real solve call.
         """
         try:
             q_dummy = self.robot.get_default_config()
             target_dummy = jaxlie.SE3.identity()
+            supported = self.robot.supported_frames
 
-            self.solve(target_dummy, target_dummy, target_dummy, q_dummy)
+            # Primary combination: matches exactly what the controller calls at runtime.
+            L = target_dummy if "left" in supported else None
+            R = target_dummy if "right" in supported else None
+            H = target_dummy if "head" in supported else None
+            self.solve(L, R, H, q_dummy)
 
-            self.solve(target_dummy, None, None, q_dummy)
-            self.solve(None, target_dummy, None, q_dummy)
-            self.solve(None, None, target_dummy, q_dummy)
+            # Individual-frame combinations for partial-tracking fallback paths.
+            if "left" in supported:
+                self.solve(target_dummy, None, None, q_dummy)
+            if "right" in supported:
+                self.solve(None, target_dummy, None, q_dummy)
+            if "head" in supported:
+                self.solve(None, None, target_dummy, q_dummy)
         except Exception:
             # Warmup might fail if robot is a mock or not fully implemented yet.
             # We don't want to crash during initialization in that case.
