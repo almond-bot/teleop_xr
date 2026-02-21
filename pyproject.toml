@@ -35,9 +35,20 @@ readme = { file = "README.md", content-type = "text/markdown" }
 license = { file = "LICENSE" }
 authors = [{ name = "Qrafty AI", email = "contact@qrafty-ai.com" }]
 dependencies = [
+  "numpy",
+  "pydantic>=2.0.0",
+  "loguru>=0.7.3",
+]
+
+[project.urls]
+Documentation = "https://github.com/qrafty-ai/teleop_xr"
+Source = "https://github.com/qrafty-ai/teleop_xr"
+Tracker = "https://github.com/qrafty-ai/teleop_xr/issues"
+
+[project.optional-dependencies]
+base = [
   "fastapi",
   "uvicorn[standard]",
-  "numpy",
   "transforms3d",
   "pytest",
   "requests",
@@ -47,17 +58,8 @@ dependencies = [
   "av",
   "rich>=13.0.0",
   "tyro>=0.8.0",
-  "pydantic>=2.0.0",
-  "loguru>=0.7.3",
   "typing-extensions>=4.0.0; python_version < '3.12'",
 ]
-
-[project.urls]
-Documentation = "https://github.com/qrafty-ai/teleop_xr"
-Source = "https://github.com/qrafty-ai/teleop_xr"
-Tracker = "https://github.com/qrafty-ai/teleop_xr/issues"
-
-[project.optional-dependencies]
 ram = [
   "gitpython>=3.1.46",
   "xacro>=2.1.1",
