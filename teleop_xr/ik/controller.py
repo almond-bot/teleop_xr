@@ -149,15 +149,25 @@ class IKController:
         Returns:
             jaxlie.SE3: IK target in robot URDF world frame.
         """
-        T_ctrl_in_shoulder = T_shoulder.inverse() @ T_ctrl
+        # World-frame offset from shoulder to controller (strip shoulder orientation —
+        # the Quest body-tracking joint frame does not align with world FLU and would
+        # corrupt the translation if we used T_shoulder.inverse() @ T_ctrl directly).
+        offset_world = T_ctrl.translation() - T_shoulder.translation()
+
+        # Controller orientation relative to shoulder in world FLU frame.
+        ctrl_rot_in_shoulder = T_shoulder.rotation().inverse() @ T_ctrl.rotation()
 
         R_align = self.robot.R_align
-        T_ctrl_aligned = jaxlie.SE3.from_rotation_and_translation(
-            R_align @ T_ctrl_in_shoulder.rotation(),
-            T_ctrl_in_shoulder.translation(),
-        )
 
-        return T_link0_in_world @ T_ctrl_aligned
+        # Translation: add world-frame offset directly to link0 position.
+        # Do NOT compose via SE3 multiplication — that would apply link0's Rx(±π/2)
+        # to the FLU offset and swap Y/Z axes.
+        target_translation = T_link0_in_world.translation() + offset_world
+
+        # Rotation: link0 frame @ alignment correction @ controller orientation.
+        target_rotation = T_link0_in_world.rotation() @ R_align @ ctrl_rot_in_shoulder
+
+        return jaxlie.SE3.from_rotation_and_translation(target_rotation, target_translation)
 
     def _get_device_poses(self, state: XRState) -> dict[str, jaxlie.SE3]:
         """

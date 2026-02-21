@@ -55,12 +55,13 @@ class OpenArmRobot(BaseRobot):
     _T_R_LINK0_IN_WORLD: jaxlie.SE3 = _make_link0_transform(math.pi / 2, -0.031)
 
     # Grip-frame → EE (link7) frame alignment for absolute pose mode.
-    # At zero joint config, link7's orientation in URDF world is Rx(-π/2) for the
-    # left arm, Rx(+π/2) for the right. All joint kinematics have zero rpy, so
-    # link7-in-link0 = identity at zero config. The XR grip frame (post RUB→FLU
-    # conversion) and link7 share the same FLU axes, so identity is the correct
-    # starting value. Adjust empirically if EE orientation is off.
-    _R_ALIGN: jaxlie.SO3 = jaxlie.SO3.identity()
+    #
+    # The OpenArm arms extend along the link0 Z-axis (which points sideways in
+    # world frame due to the ±π/2 roll mount). The XR controller grip frame in
+    # FLU has X=forward. Ry(+π/2) maps controller-X → link0-Z so that holding
+    # the controller straight forward targets the arm pointing outward, matching
+    # the robot's natural resting pose.
+    _R_ALIGN: jaxlie.SO3 = jaxlie.SO3.from_rpy_radians(0.0, math.pi / 2, 0.0)
 
     def __init__(self, urdf_string: str | None = None, **kwargs: Any) -> None:
         super().__init__()
