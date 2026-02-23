@@ -81,7 +81,10 @@ class PyrokiSolver:
             initial_vals=initial_vals,
             verbose=False,
             linear_solver="dense_cholesky",
-            termination=jaxls.TerminationConfig(max_iterations=15),
+            termination=jaxls.TerminationConfig(
+                max_iterations=15,
+                cost_tolerance=1e-3,
+            ),
         )
 
         # Return the optimized joint configuration for the first (and only) timestep

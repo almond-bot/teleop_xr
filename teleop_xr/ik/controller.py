@@ -325,7 +325,6 @@ class IKController:
             if self.filter.data_ready():
                 return self.filter.filtered_data
 
-        logger.debug(f"[IKController] New Config: {new_config}")
         return new_config
 
     def step(self, state: XRState, q_current: np.ndarray) -> np.ndarray:
@@ -363,7 +362,6 @@ class IKController:
                 fk_poses = self.robot.forward_kinematics(jnp.asarray(q_current))
                 self.snapshot_robot = {k: fk_poses[k] for k in required_keys}
 
-                logger.info(f"[IKController] Relative engaged. FK: {self.snapshot_robot}")
                 return q_current
 
             target_L: jaxlie.SE3 | None = None

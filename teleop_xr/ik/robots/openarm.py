@@ -246,7 +246,7 @@ class OpenArmRobot(BaseRobot):
                 )
             )
 
-        costs.append(pk.costs.limit_cost(self.robot, JointVar(0), weight=100.0))
+        costs.append(pk.costs.limit_cost(self.robot, JointVar(0), weight=10.0))
 
         costs.append(
             pk.costs.self_collision_cost(
