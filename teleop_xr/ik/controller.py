@@ -22,15 +22,22 @@ class IKController:
             target = robot_FK_init + transform(xr_now - xr_init)
 
     ``"absolute"``
-        EE targets are derived directly from the live controller pose relative to
-        the operator's shoulder (supplied via ``XRState.body_joints``).  Each arm
-        is mapped through the robot's corresponding ``link0`` frame so the
-        shoulder-relative workspace maps to the robot's arm workspace:
-            T_ctrl_in_shoulder = T_shoulder.inverse() @ T_ctrl
-            target = T_link0_in_world @ R_align @ T_ctrl_in_shoulder
+        EE targets are derived from the live controller pose relative to the
+        operator's shoulder position, with body yaw (from the HMD viewer pose)
+        used as the horizontal reference frame:
 
-        Requires the robot to implement ``link0_transforms``; falls back to
-        relative if shoulder poses are missing from the state.
+            R_body_yaw    = yaw-only SO3 extracted from head orientation
+            offset_body   = R_body_yaw⁻¹ @ (p_ctrl - p_shoulder)
+            ctrl_rot_body = R_body_yaw⁻¹ @ R_ctrl
+            target_t      = p_link0 + offset_body
+            target_R      = ctrl_rot_body @ R_link0 @ R_align
+
+        Using only the yaw component of the head pose means the body reference
+        rotates when the operator turns their torso (correct), but nodding or
+        tilting the head does not affect the arm mapping.  Walking is handled
+        by the shoulder position subtraction.  Requires both shoulder poses
+        (``XRState.body_joints``) and a head device pose; falls back to relative
+        if either is missing.
 
     In both modes the deadman switch (both grips squeezed) must be held.
     """
@@ -131,49 +138,60 @@ class IKController:
         self,
         T_ctrl: jaxlie.SE3,
         T_shoulder: jaxlie.SE3,
+        T_head: jaxlie.SE3,
         T_link0_in_world: jaxlie.SE3,
     ) -> jaxlie.SE3:
         """
         Compute an absolute IK target in robot world frame (absolute mode).
 
-        Maps the controller's pose relative to the operator's shoulder into the
-        robot's arm workspace. Translation is a direct world-frame offset from
-        link0. Rotation is: ``ctrl_rot_world @ link0_rot @ R_align`` — the
-        controller's world-frame rotation left-multiplied so all axes stay in
-        world frame, with ``R_align`` setting the EE's rest orientation.
+        Extracts body yaw from the HMD viewer pose and uses it as the horizontal
+        reference frame, with the shoulder position as the translation origin:
+
+            R_body_yaw    = yaw-only SO3 from head forward vector projected onto XY
+            offset_body   = R_body_yaw⁻¹ @ (p_ctrl - p_shoulder)
+            ctrl_rot_body = R_body_yaw⁻¹ @ R_ctrl
+            target_t      = p_link0 + offset_body
+            target_R      = ctrl_rot_body @ R_link0 @ R_align
+
+        Using only yaw means nodding or tilting the head has no effect on the arm
+        mapping. Turning the torso (which rotates the HMD yaw) correctly rotates
+        the reference frame so arm motion stays body-relative.
+
+        Note: offset_body is added directly to p_link0 without applying R_link0 to
+        the translation — left-multiplying by R_link0 would apply its Rx(±π/2) to
+        the FLU offset and permute axes (e.g. up→right). R_link0 only appears on
+        the right side of the rotation formula to set the EE rest orientation.
 
         Args:
             T_ctrl: Controller grip pose in FLU world frame.
-            T_shoulder: Shoulder joint pose in FLU world frame (only position is used;
-                the Quest body-tracking orientation is a joint-local frame that does
-                not align with world FLU).
+            T_shoulder: Shoulder joint pose in FLU world frame (position used only).
+            T_head: HMD viewer pose in FLU world frame (orientation used for yaw).
             T_link0_in_world: Fixed SE3 of the arm's link0 in the URDF world frame.
 
         Returns:
             jaxlie.SE3: IK target in robot URDF world frame.
         """
-        # World-frame offset from shoulder to controller.
-        # Strip shoulder orientation entirely — the Quest body-tracking joint frame
-        # does not align with world FLU and corrupts both translation and rotation.
-        offset_world = T_ctrl.translation() - T_shoulder.translation()
+        # Extract body yaw: project the head's forward vector (+X in FLU) onto the
+        # horizontal plane and build a pure-yaw rotation around world Z (up in FLU).
+        head_fwd = T_head.rotation() @ jnp.array([1.0, 0.0, 0.0])
+        yaw = jnp.arctan2(head_fwd[1], head_fwd[0])
+        R_body_yaw = jaxlie.SO3.from_rpy_radians(0.0, 0.0, yaw)
 
-        # Controller orientation in world FLU frame (no shoulder-relative transform).
-        # Using the raw world orientation keeps R_align as a pure EE-frame correction
-        # that's independent of the shoulder tracking frame.
-        ctrl_rot_world = T_ctrl.rotation()
+        # Cancel body yaw from both translation offset and controller orientation.
+        offset_body = R_body_yaw.inverse() @ (T_ctrl.translation() - T_shoulder.translation())
+        ctrl_rot_body = R_body_yaw.inverse() @ T_ctrl.rotation()
 
         R_align = self.robot.R_align
 
-        # Translation: add world-frame offset directly to link0 position.
-        # Do NOT compose via SE3 multiplication — that would apply link0's Rx(±π/2)
-        # to the FLU offset and swap Y/Z axes.
-        target_translation = T_link0_in_world.translation() + offset_world
+        # Translation: add the body-frame offset directly to link0's world position.
+        # Do NOT left-multiply by R_link0 — that would apply link0's Rx(±π/2) to the
+        # FLU offset, swapping Y/Z axes (e.g. up→right, right→down).
+        target_translation = T_link0_in_world.translation() + offset_body
 
-        # Rotation: apply controller rotation in world frame, then the rest orientation.
-        # Left-multiplying by ctrl_rot keeps all axes in world frame — right-multiplying
-        # (link0_rot @ R_align @ ctrl_rot) would express ctrl_rot in EE frame, causing
-        # a cyclic axis permutation (controller Rz → arm Rx, etc.).
-        target_rotation = ctrl_rot_world @ T_link0_in_world.rotation() @ R_align
+        # Rotation: R_link0 on the RIGHT sets the EE rest orientation in world frame;
+        # left-multiplying by ctrl_rot_body applies the controller's body-relative
+        # rotation on top, keeping all axes in world frame.
+        target_rotation = ctrl_rot_body @ T_link0_in_world.rotation() @ R_align
 
         return jaxlie.SE3.from_rotation_and_translation(target_rotation, target_translation)
 
@@ -222,6 +240,18 @@ class IKController:
             if pose_data is not None:
                 poses[side] = self.xr_pose_to_se3(pose_data)
         return poses
+
+    def _get_head_pose(self, state: XRState) -> jaxlie.SE3 | None:
+        """
+        Extract the HMD viewer pose from the current XR state.
+
+        Returns None if no head device is present, allowing the caller to fall
+        back to relative mode gracefully.
+        """
+        for device in state.devices:
+            if device.role == XRDeviceRole.HEAD and device.pose is not None:
+                return self.xr_pose_to_se3(device.pose)
+        return None
 
     def _check_deadman(self, state: XRState) -> bool:
         """
@@ -373,16 +403,22 @@ class IKController:
         is_deadman_active = self._check_deadman(state)
         curr_xr_poses = self._get_device_poses(state)
         shoulder_poses = self._get_shoulder_poses(state)
+        head_pose = self._get_head_pose(state)
 
         required_keys = self.robot.supported_frames
         has_all_poses = all(k in curr_xr_poses for k in required_keys)
 
-        # Fall back to relative if shoulder data is missing
+        # Fall back to relative if shoulder or head data is missing
         has_all_shoulders = all(k in shoulder_poses for k in required_keys if k in ("left", "right"))
-        if not has_all_shoulders:
+        if not has_all_shoulders or head_pose is None:
             if is_deadman_active and has_all_poses:
+                missing = []
+                if not has_all_shoulders:
+                    missing.append("shoulder poses (body_joints)")
+                if head_pose is None:
+                    missing.append("head pose")
                 logger.warning(
-                    "[IKController] Absolute mode: shoulder poses missing from state.body_joints. "
+                    f"[IKController] Absolute mode: {' and '.join(missing)} missing. "
                     "Falling back to relative mode for this step."
                 )
             return self._step_relative(state, q_current)
@@ -403,12 +439,14 @@ class IKController:
                 target_L = self.compute_absolute_target(
                     curr_xr_poses["left"],
                     shoulder_poses["left"],
+                    head_pose,
                     link0_tfs["left"],
                 )
             if "right" in required_keys and "right" in link0_tfs:
                 target_R = self.compute_absolute_target(
                     curr_xr_poses["right"],
                     shoulder_poses["right"],
+                    head_pose,
                     link0_tfs["right"],
                 )
             if "head" in required_keys:
