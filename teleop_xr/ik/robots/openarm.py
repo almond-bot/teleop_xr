@@ -43,10 +43,11 @@ class OpenArmRobot(BaseRobot):
     converted to FLU (Forward-Left-Up / ROS) frame by the server. Shoulder-relative
     controller motion is mapped to robot-world targets via ``link0_transforms``.
 
-    ``R_ALIGN`` maps the controller grip frame to the robot EE (link7) frame. It
-    defaults to identity, which is a reasonable starting point. Tune it empirically
-    once with hardware: hold the controller at a reference pose (arm forward, palm
-    facing inward) and adjust until link7 tracks correctly.
+    ``R_ALIGN`` maps the controller grip frame to the robot EE (link7) frame.
+    Tune empirically: hold the controller at a reference pose (arm forward, palm
+    facing inward) and adjust until link7 tracks correctly. Roll correction (spin
+    about the approach axis) must be applied as Rz(r) right-multiplied onto the
+    existing R_align — see ``_R_ALIGN`` comment for details.
     """
 
     # Fixed transforms from URDF world frame to each arm's base link (link0).
@@ -57,11 +58,19 @@ class OpenArmRobot(BaseRobot):
     # Grip-frame → EE (link7) frame alignment for absolute pose mode.
     #
     # link0 has Rx(±π/2), so at zero config link7's Z-axis points sideways (±Y
-    # in world). Ry(+π/2) maps Z→X in link0 frame, rotating the EE approach axis
-    # to world +X (forward) when the controller is held straight out.
-    # Add an Rx(r) component via from_rpy_radians(r, π/2, 0) to correct wrist spin
-    # if the gripper opening direction is still off after this.
-    _R_ALIGN: jaxlie.SO3 = jaxlie.SO3.from_rpy_radians(0.0, math.pi / 2, 0.0)
+    # in world). Ry(+π/2) maps link7-Z→X in the link0 frame, rotating the EE
+    # approach axis to world +X (forward) when the controller is held straight out.
+    #
+    # Roll correction (spin about the EE approach axis):
+    #   target_R = ctrl_rot_body @ R_link0 @ R_align
+    # R_align is right-multiplied, so additional rotations appended on the right
+    # operate in the already-mapped EE frame. After Ry(π/2), the approach axis
+    # (link7 Z) lands on the Ry output X, so spinning about the approach axis
+    # requires Rz(r) RIGHT-multiplied onto Ry(π/2):
+    #   R_align = Ry(π/2) @ Rz(r)
+    # Do NOT use from_rpy_radians(r, π/2, 0) = Ry(π/2) @ Rx(r); that rotates
+    # about the pre-Ry X-axis and tilts the approach direction away from world +X.
+    _R_ALIGN: jaxlie.SO3 = jaxlie.SO3.from_rpy_radians(0.0, math.pi / 2, 0.0) @ jaxlie.SO3.from_rpy_radians(0.0, 0.0, math.pi / 2)
 
     def __init__(self, urdf_string: str | None = None, **kwargs: Any) -> None:
         super().__init__()
