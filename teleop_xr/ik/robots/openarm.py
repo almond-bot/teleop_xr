@@ -70,7 +70,9 @@ class OpenArmRobot(BaseRobot):
     #   R_align = Ry(π/2) @ Rz(r)
     # Do NOT use from_rpy_radians(r, π/2, 0) = Ry(π/2) @ Rx(r); that rotates
     # about the pre-Ry X-axis and tilts the approach direction away from world +X.
-    _R_ALIGN: jaxlie.SO3 = jaxlie.SO3.from_rpy_radians(0.0, math.pi / 2, 0.0) @ jaxlie.SO3.from_rpy_radians(0.0, 0.0, math.pi / 2)
+    _R_ALIGN_RIGHT: jaxlie.SO3 = jaxlie.SO3.from_rpy_radians(0.0, math.pi / 2, 0.0) @ jaxlie.SO3.from_rpy_radians(0.0, 0.0, math.pi / 2)
+    # Left arm is mirrored: roll correction must be opposite so shoulder stays near zero.
+    _R_ALIGN_LEFT: jaxlie.SO3 = jaxlie.SO3.from_rpy_radians(0.0, math.pi / 2, 0.0) @ jaxlie.SO3.from_rpy_radians(0.0, 0.0, -math.pi / 2)
 
     def __init__(self, urdf_string: str | None = None, **kwargs: Any) -> None:
         super().__init__()
@@ -138,10 +140,11 @@ class OpenArmRobot(BaseRobot):
             "right": self._T_R_LINK0_IN_WORLD,
         }
 
-    @property
     @override
-    def R_align(self) -> jaxlie.SO3:
-        return self._R_ALIGN
+    def get_R_align(self, side: str | None = None) -> jaxlie.SO3:
+        if side == "left":
+            return self._R_ALIGN_LEFT
+        return self._R_ALIGN_RIGHT
 
     @property
     @override

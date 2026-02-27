@@ -132,15 +132,13 @@ class BaseRobot(ABC):
         """
         return {}
 
-    @property
-    def R_align(self) -> jaxlie.SO3:
+    def get_R_align(self, side: str | None = None) -> jaxlie.SO3:
         """
         Rotation that maps the XR controller grip frame to the robot EE (link7) frame.
 
-        Applied during absolute pose computation after shoulder-relative subtraction.
-        Defaults to identity — tune empirically once with hardware by adjusting until
-        the robot's EE orientation matches the controller's held orientation at a
-        reference pose (e.g. arm forward, palm down).
+        Used in absolute pose mode after shoulder-relative subtraction. Override in
+        bimanual robots to return per-arm alignment when left/right grip frames
+        differ (e.g. mirrored roll). Defaults to identity.
         """
         return jaxlie.SO3.identity()
 

@@ -140,6 +140,7 @@ class IKController:
         T_shoulder: jaxlie.SE3,
         T_head: jaxlie.SE3,
         T_link0_in_world: jaxlie.SE3,
+        side: str | None = None,
     ) -> jaxlie.SE3:
         """
         Compute an absolute IK target in robot world frame (absolute mode).
@@ -167,6 +168,7 @@ class IKController:
             T_shoulder: Shoulder joint pose in FLU world frame (position used only).
             T_head: HMD viewer pose in FLU world frame (orientation used for yaw).
             T_link0_in_world: Fixed SE3 of the arm's link0 in the URDF world frame.
+            side: Optional "left" or "right" for per-arm R_align (bimanual robots).
 
         Returns:
             jaxlie.SE3: IK target in robot URDF world frame.
@@ -181,7 +183,7 @@ class IKController:
         offset_body = R_body_yaw.inverse() @ (T_ctrl.translation() - T_shoulder.translation())
         ctrl_rot_body = R_body_yaw.inverse() @ T_ctrl.rotation()
 
-        R_align = self.robot.R_align
+        R_align = self.robot.get_R_align(side)
 
         # Translation: add the body-frame offset directly to link0's world position.
         # Do NOT left-multiply by R_link0 — that would apply link0's Rx(±π/2) to the
@@ -439,6 +441,7 @@ class IKController:
                     shoulder_poses["left"],
                     head_pose,
                     link0_tfs["left"],
+                    side="left",
                 )
             if "right" in required_keys and "right" in link0_tfs:
                 target_R = self.compute_absolute_target(
@@ -446,6 +449,7 @@ class IKController:
                     shoulder_poses["right"],
                     head_pose,
                     link0_tfs["right"],
+                    side="right",
                 )
             if "head" in required_keys:
                 # Head tracking has no shoulder analogue; use relative mode for head
